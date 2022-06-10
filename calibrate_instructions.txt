@@ -1,0 +1,6 @@
+1. Create operation folder '0610_IMX477_infinity_still/' at the same level as 'calibrate_camera/'
+2. Put calibration images in 'scenes/' under the operation folder. 
+3. Put test images in 'test/' under the operation folder.
+4. Run 'python calibrate_camera/pairs_cut.py' in this folder. 
+5. Run 'python calibrate_camera/calibrate_vanilla.py' in this folder.
+6. 

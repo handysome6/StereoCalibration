@@ -1,18 +1,15 @@
 import os
 import cv2
 import numpy as np
+from pathlib import Path
 
+operation_folder = '0610_IMX477_infinity_still'
 imageSrc = './scenes'
 imageDest='./rectified'
 
 # Global variables preset
-total_photos = 30
-
-# Camera resolution
 photo_width = 8112
 photo_height = 3040
-
-# Image resolution for processing
 img_width = 4056
 img_height = 3040
 imageSize = (img_width,img_height)
@@ -28,15 +25,17 @@ objp = np.zeros((CHECKERBOARD[0]*CHECKERBOARD[1],3), np.float32)
 objp[:,:2] = np.mgrid[0:CHECKERBOARD[0],0:CHECKERBOARD[1]].T.reshape(-1,2)
 objp *= square_size         # stereoCalibrate() export R and T in this scale
 
-subpix_criteria = (cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+
+# change to operation folder
+os.chdir(f"{operation_folder}")
+total_photos = len(list(Path('scenes').glob('*.jpg')))
+
 
 objpoints = []              # 3d point in real world space
 imgpointsLeft = []          # 2d points in image plane.
 imgpointsRight = []         # 2d points in image plane.
-
-
 try:
-    npz_file = np.load('./calibration_data/chessboard_calib.npz')
+    npz_file = np.load('calibration_data/chessboard_calib.npz')
     objpoints = npz_file['objpoints']
     imgpointsLeft = npz_file['imgpointsLeft']
     imgpointsRight = npz_file['imgpointsRight']
@@ -45,6 +44,7 @@ except:
         photo_counter = 0
         print ('Main cycle start')
 
+        subpix_criteria = (cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         while photo_counter != total_photos:
             photo_counter = photo_counter + 1
             print ('Import pair No ' + str(photo_counter))
@@ -95,10 +95,13 @@ except:
 
 
 ############# Filter outliers ###############
-outliers_id = []       # result of perViewError <- stereoCalibrateExtended()
+outliers_id = [15, 29]       # result of perViewError <- stereoCalibrateExtended()
 inliers =   [True if id not in outliers_id 
             else False
             for id in range(total_photos)]
+objpoints = np.array(objpoints)
+imgpointsLeft = np.array(imgpointsLeft)
+imgpointsRight = np.array(imgpointsRight)
 objpoints = objpoints[inliers]
 imgpointsLeft = imgpointsLeft[inliers]
 imgpointsRight = imgpointsRight[inliers]
@@ -118,13 +121,13 @@ print(f'''
 =============== Single Camera Calib ===============
 --------------Left Camera---------------
 RMS (Root Mean Square Error): {ret1}
-K (Intrinsic Params): \n{cameraMatrix1}
-''', end='')
+K (Intrinsic Params): \n{cameraMatrix1}''', 
+end='')
 print(f'''
---------------Right Camera-------------
-RMS (Root Mean Square Error): {ret2}
-K (Intrinsic Params): \n{cameraMatrix2}
-''')
+    --------------Right Camera-------------
+    RMS (Root Mean Square Error): {ret2}
+    K (Intrinsic Params): \n{cameraMatrix2}
+    ''')
 
 
 calib_criteria = (cv2.TERM_CRITERIA_COUNT+cv2.TERM_CRITERIA_EPS, 100, 1e-5)
@@ -138,14 +141,14 @@ flags = cv2.CALIB_USE_INTRINSIC_GUESS
 # R, T -> rotation and translation between two cameras
 # E, F -> esstential and fundamental matrix
 # perViewError -> RMS for every image pair
-RMS, cm1, cd1, cm2, cd2, R, T, E, F = \
-    cv2.stereoCalibrate(            
+RMS, cm1, cd1, cm2, cd2, R, T, E, F,perViewError = \
+    cv2.stereoCalibrateExtended(            
         objpoints, 
         imgpointsLeft, imgpointsRight, 
         cameraMatrix1, distCoeffs1, 
         cameraMatrix2, distCoeffs2, 
         imageSize, 
-        # R, T, 
+        None, None, 
         criteria=calib_criteria, 
         flags=flags
     )
@@ -165,19 +168,22 @@ T: \n{T}
 # print(perViewError)
 
 
+newImageSize = np.array(imageSize) * 1
+
 # calculate rectify matrices using calibration param
 R1, R2, P1, P2, Q, ROI1, ROI2 = \
     cv2.stereoRectify(
         cm1, cd1, 
         cm2, cd2, 
-        imageSize, R, T
+        imageSize, R, T,
+        alpha=1,
+        newImageSize=newImageSize
     )
 
 
 # save all parameters
-save_file = '0530_rectify_param'
-print("Saving rectify param to ../{save_file}.npz")
-np.savez(f'../0530_rectify_param.npz',
+print(f"Saving rectify param to {operation_folder}/{operation_folder}.npz")
+np.savez(f'{operation_folder}.npz',
     cm1 = cm1, cd1 = cd1, 
     cm2 = cm2, cd2 = cd2,
     R = R, T = T, 
@@ -185,23 +191,43 @@ np.savez(f'../0530_rectify_param.npz',
     R2 = R2, P2 = P2,
     Q = Q,
     ROI1 = ROI1, ROI2 = ROI2,
+    newImageSize=newImageSize,
     )
 
 
-# #map and save
-# leftMapX, leftMapY = cv2.initUndistortRectifyMap(cameraMatrix1, distCoeffs1, R1, P1, imageSize, cv2.CV_16SC2)
-# rightMapX, rightMapY= cv2.initUndistortRectifyMap(cameraMatrix2, distCoeffs2, R2, P2, imageSize, cv2.CV_16SC2)
-# imageDest = './rectify_vanilla'
-# if (os.path.isdir(imageDest)==False):
-#     os.makedirs(imageDest)
-# for i in range(total_photos):
-#     print("Rectifying photo id:", i)
-#     if i in outliers_id:
-#         continue
-#     imgL = cv2.imread('pairs/'+str(i+1).zfill(2)+'_left.png')
-#     imgR = cv2.imread('pairs/'+str(i+1).zfill(2)+'_right.png')
-#     imgL = cv2.remap(imgL, leftMapX, leftMapY, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
-#     imgR = cv2.remap(imgR, rightMapX, rightMapY, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+#map and save
+leftMapX, leftMapY = cv2.initUndistortRectifyMap(cameraMatrix1, distCoeffs1, R1, P1, newImageSize, cv2.CV_16SC2)
+rightMapX, rightMapY= cv2.initUndistortRectifyMap(cameraMatrix2, distCoeffs2, R2, P2, newImageSize, cv2.CV_16SC2)
 
-#     cv2.imwrite(imageDest+"/"+"rectify_"+str(i+1).zfill(2)+"_left.jpg",imgL)
-#     cv2.imwrite(imageDest+"/"+"rectify_"+str(i+1).zfill(2)+"_right.jpg",imgR)
+
+# # read
+# os.chdir('test')
+# filename = '10'
+# img = f'{filename}.jpg'
+# if os.path.isfile(img) == False:
+#     print (f"No file named {img}"); exit()
+# pair_img = cv2.imread(img,-1)
+# # split
+# imgL = pair_img [0:img_height,0:img_width] #Y+H and X+W
+# imgR = pair_img [0:img_height,img_width:photo_width]
+# # rectify
+# imgL = cv2.remap(imgL, leftMapX, leftMapY, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+# imgR = cv2.remap(imgR, rightMapX, rightMapY, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+# cv2.imwrite(f"rectify_{filename}_left.jpg", imgL)
+# cv2.imwrite(f"rectify_{filename}_right.jpg",imgR)
+
+
+imageDest = './rectify_vanilla'
+if (os.path.isdir(imageDest)==False):
+    os.makedirs(imageDest)
+for i in range(total_photos):
+    print("Rectifying photo id:", i)
+    if i in outliers_id:
+        continue
+    imgL = cv2.imread('pairs/'+str(i+1).zfill(2)+'_left.png')
+    imgR = cv2.imread('pairs/'+str(i+1).zfill(2)+'_right.png')
+    imgL = cv2.remap(imgL, leftMapX, leftMapY, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+    imgR = cv2.remap(imgR, rightMapX, rightMapY, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+
+    cv2.imwrite(f"{imageDest}/rectify_{str(i+1).zfill(2)}_left.jpg", imgL)
+    cv2.imwrite(f"{imageDest}/rectify_{str(i+1).zfill(2)}_right.jpg", imgR)
