@@ -95,7 +95,7 @@ except:
 
 
 ############# Filter outliers ###############
-outliers_id = [15, 29]       # result of perViewError <- stereoCalibrateExtended()
+outliers_id = []       # result of perViewError <- stereoCalibrateExtended()
 inliers =   [True if id not in outliers_id 
             else False
             for id in range(total_photos)]

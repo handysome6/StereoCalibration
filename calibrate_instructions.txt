@@ -1,6 +1,16 @@
+# prepare images (already done in this PC)
 1. Create operation folder '0610_IMX477_infinity_still/' at the same level as 'calibrate_camera/'
 2. Put calibration images in 'scenes/' under the operation folder. 
 3. Put test images in 'test/' under the operation folder.
-4. Run 'python calibrate_camera/pairs_cut.py' in this folder. 
-5. Run 'python calibrate_camera/calibrate_vanilla.py' in this folder.
-6. 
+
+# calibrate step
+4. Run 'python calibrate_camera/pairs_cut.py' to cut sbs images into two in THIS folder. 
+5. Run 'python calibrate_camera/calibrate_vanilla.py' to calibrate in THIS folder.
+    Tip: Filter out images by printing perViewError in calibrate_vanilla.py.
+    Tip: Delete folder '0610_IMX477_infinity_still/calibration_data/' before re-calibrating.
+
+# measure and test
+7. Measure length step:
+    run 'python measure_len/split_rectify_vanilla.py' to rectify test images.
+    run 'python measure_len/measure_click.py' to measure length in a pair of images. 
+        Tip: You can change which image to measure by modifying 'measure_click.py'

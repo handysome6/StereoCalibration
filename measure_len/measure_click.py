@@ -6,12 +6,19 @@ from click_coord import ClickImage
 
 
 # chdir to 
-operation_folder = "0608_IMX477_infinity"
-os.chdir(f"../{operation_folder}")
+operation_folder = "0610_IMX477_infinity_still"
+os.chdir(f"{operation_folder}")
 
+
+##### change image id here #####
+measure_id = 1
+imgL = cv2.imread(f'test/rectify_{measure_id}_left.jpg', 0)
+imgR = cv2.imread(f'test/rectify_{measure_id}_right.jpg', 0)
+# imgL = cv2.imread('rectify_vanilla/rectify_01_left.jpg', 0)
+# imgR = cv2.imread('rectify_vanilla/rectify_01_right.jpg', 0)
 
 # predetermined intrinsic param
-params = np.load("0608_IMX477_infinity.npz")
+params = np.load(f"{operation_folder}.npz")
 cameraMatrix = params['cm1']
 P1 = params['P1']
 Q = params['Q']
@@ -52,10 +59,7 @@ def subPixelAccuracy(img, coords):
     return coords
 
 
-imgL = cv2.imread('test/rectify_15_left.jpg', 0)
-imgR = cv2.imread('test/rectify_15_right.jpg', 0)
-# imgL = cv2.imread('rectify_vanilla/rectify_01_left.jpg', 0)
-# imgR = cv2.imread('rectify_vanilla/rectify_01_right.jpg', 0)
+
 left = ClickImage(imgL, 'left')
 img_coord_left = left.click_coord()
 right = ClickImage(imgR, 'right')
